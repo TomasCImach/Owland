@@ -16,3 +16,7 @@ The following states can be modified by the owner of the contract:
     darkowls - Dark Owls NFT SC Address
     baseURI - 
     baseExtension - 
+
+Contructor:
+    - sepecifies special plots
+    - TODO Specify types b and c

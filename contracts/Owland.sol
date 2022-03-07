@@ -3,8 +3,6 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
-//import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol"; Sacado para poner IPFS
-//import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "hardhat/console.sol";
@@ -25,13 +23,20 @@ contract Owland is ERC721, Ownable {
     uint256 public maxMint = 2500;
     bool public paused = false;
     bool public isFree = true;
+    mapping(uint256 => bool) public typeAPlots;
 
     mapping(uint => bool) public hasMinted;
 
     //grid size of 50 by 50
     uint256 internal constant GRID_SIZE = 50;
 
-    constructor() ERC721 ("OwLand", "OWLAND") {}
+    constructor() ERC721 ("OwLand", "OWLAND") {
+        // Sepecial plots:
+        uint16[38] memory aTypePlots = [51, 65, 75, 76, 85, 100, 510, 520, 530, 540, 751, 775, 776, 800, 1010, 1040, 1251, 1285, 1300, 1301, 1335, 1350, 1510, 1540, 1751, 1775, 1776, 1800, 510, 520, 530, 540, 2501, 2515, 2525, 2526, 2535, 2550];
+        for (uint256 i = 0; i < 38; i++) {
+            typeAPlots[aTypePlots[i]] = true;
+        }
+    }
 
     function _baseURI() internal view virtual override returns (string memory) {
         return baseURI;
