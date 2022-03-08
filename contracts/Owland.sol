@@ -12,7 +12,7 @@ import { Base64 } from "./libraries/Base64.sol";
 
 contract Owland is ERC721, Ownable {
     using Counters for Counters.Counter;
-    Counters.Counter private _tokenIds;
+    Counters.Counter private totalSupply;
 
     DarkOwls public darkowls;
 
@@ -56,16 +56,20 @@ contract Owland is ERC721, Ownable {
     /// @notice x coordinate of Land token
     /// @param id tokenId
     /// @return the x coordinates
-    function x(uint256 id) external pure returns(uint256) {
+    function x(uint256 id) public pure returns(uint256) {
         //require(_ownerOf(id) != address(0), "token does not exist");
         return id % GRID_SIZE;
     }
     /// @notice y coordinate of Land token
     /// @param id tokenId
     /// @return the y coordinates
-    function y(uint256 id) external pure returns(uint256) {
+    function y(uint256 id) public pure returns(uint256) {
         //require(_ownerOf(id) != address(0), "token does not exist");
         return id / GRID_SIZE;
+    }
+    ///
+    function getTokenIdByCoordinates(uint256 _x, uint256 _y) public pure returns(uint256) {
+        return _x + _y * GRID_SIZE;
     }
 
     //Returns true if DOWL had already minted a OWLAND
@@ -73,29 +77,61 @@ contract Owland is ERC721, Ownable {
         return hasMinted[_owlId];
     }
 
-    function mint(uint256[] memory _owlIds) public payable {
+    function mintByCoordinates(uint256 _x, uint256 _y, uint256 _owlId) external payable {
         require(!paused, "Contract Paused");
-        require(_tokenIds.current() + _owlIds.length <= maxMint, "Max NFTs minted.");
-        require(_owlIds.length > 0, "mint more than 0 please");
+        require(totalSupply.current() + 1 <= maxMint, "Max NFTs minted."); //See if required
+        if (!isFree) {
+            require(msg.value >= cost, "Pay me!");
+        }
+        // Check if Owls Ids have minted a Land and is Owned by msg sender
+        require(hasMinted[_owlId] == false, "Land already minted for this owl");
+        require(darkowls.ownerOf(_owlId) == msg.sender, "Claimant is not the owner");
+        hasMinted[_owlId] = true;
+        // Check if coordinates are inside grid
+        require(_x <= GRID_SIZE && _y <= GRID_SIZE, "Coordinates out of bounds");
+
+        _mintLand(_x + _y * GRID_SIZE);
+    }
+
+    function mintLands(uint256[] calldata _tokenIds, uint256[] calldata _owlIds) external payable {
+        require(!paused, "Contract Paused");
+        require(_tokenIds.length == _owlIds.length, "Put as many Lands as Owl Ids");
+        require(totalSupply.current() + _owlIds.length <= maxMint, "Max NFTs minted."); //See if required
+        require(_owlIds.length > 0, "mint more than 0 please"); // see if required
         if (!isFree) {
             require(msg.value >= cost * _owlIds.length, "Pay me!");
         }
         
+        // Check if Owls Ids have minted a Land and is Owned by msg sender
         for (uint256 i = 0; i < _owlIds.length; i++) {
             require(hasMinted[_owlIds[i]] == false, "Land already minted for this owl");
             require(darkowls.ownerOf(_owlIds[i]) == msg.sender, "Claimant is not the owner");
-
             hasMinted[_owlIds[i]] = true;
-            mintLand();
         }
+
+        // Check if coordinates are inside grid
+        for (uint256 i = 0; i < _tokenIds.length; i++) {
+            uint256 _tokenId = _tokenIds[i];
+            require(x(_tokenId) <= GRID_SIZE && y(_tokenId) <= GRID_SIZE, "Coordinates out of bounds");
+        }
+
+        _mintLand(_tokenIds);
     }
 
-    function mintLand() internal virtual {
-        uint256 newItemId = _tokenIds.current();
-        _safeMint(msg.sender, newItemId);
-    
-        _tokenIds.increment();
-        console.log("An NFT w/ ID %s has been minted to %s", newItemId, msg.sender);
+    function _mintLand(uint256 _tokenId) internal virtual {
+        uint256[] memory _tokenIds = new uint256[](1);
+        _tokenIds[0] = _tokenId;
+        _mintLand(_tokenIds);
+    }
+
+    function _mintLand(uint256[] memory _tokenIds) internal virtual {
+        for (uint256 i = 0; i < _tokenIds.length; i++) {
+            uint256 _tokenId = _tokenIds[i];
+            require(!typeAPlots[_tokenId], "Cannot claim type A Plots");
+            _safeMint(msg.sender, _tokenId);
+            totalSupply.increment();
+            console.log("An NFT w/ ID %s has been minted to %s", _tokenId, msg.sender);
+        }
     }
 
     //UNTESTED - Returns array of ids owned by address
