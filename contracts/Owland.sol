@@ -12,7 +12,8 @@ import { Base64 } from "./libraries/Base64.sol";
 
 contract Owland is ERC721, Ownable {
     using Counters for Counters.Counter;
-    Counters.Counter private totalSupply;
+    using Strings for uint256; //only for tokenURI override
+    Counters.Counter public totalSupply;
 
     DarkOwls public darkowls;
 
@@ -69,6 +70,7 @@ contract Owland is ERC721, Ownable {
     }
     ///
     function getTokenIdByCoordinates(uint256 _x, uint256 _y) public pure returns(uint256) {
+        require(_x <= GRID_SIZE && _y <= GRID_SIZE && _x > 0 && _y > 0, "Coordinates out of bounds");
         return _x + _y * GRID_SIZE;
     }
 
@@ -88,7 +90,7 @@ contract Owland is ERC721, Ownable {
         require(darkowls.ownerOf(_owlId) == msg.sender, "Claimant is not the owner");
         hasMinted[_owlId] = true;
         // Check if coordinates are inside grid
-        require(_x <= GRID_SIZE && _y <= GRID_SIZE, "Coordinates out of bounds");
+        require(_x <= GRID_SIZE && _y <= GRID_SIZE && _x > 0 && _y > 0, "Coordinates out of bounds");
 
         _mintLand(_x + _y * GRID_SIZE);
     }
@@ -112,9 +114,9 @@ contract Owland is ERC721, Ownable {
         // Check if coordinates are inside grid
         for (uint256 i = 0; i < _tokenIds.length; i++) {
             uint256 _tokenId = _tokenIds[i];
-            require(x(_tokenId) <= GRID_SIZE && y(_tokenId) <= GRID_SIZE, "Coordinates out of bounds");
+            require(x(_tokenId) <= GRID_SIZE && y(_tokenId) <= GRID_SIZE && x(_tokenId) > 0 && y(_tokenId) > 0, "Coordinates out of bounds");
         }
-
+        
         _mintLand(_tokenIds);
     }
 
@@ -141,13 +143,21 @@ contract Owland is ERC721, Ownable {
         uint256 j = 0;
         uint256 i = 0;
         while (i < balanceOf(_address)) {
-            if (ownerOf(j) == _address) {
-                _tokensOfOwner[i] = j;
-                i++;
+            if (_exists(j)) {
+                if (ownerOf(j) == _address) {
+                    _tokensOfOwner[i] = j;
+                    i++;
+                }
             }
             j++;
         }
         return _tokensOfOwner;
+    }
+
+    function tokenURI(uint256 _tokenId) public view virtual override returns (string memory) {
+        require(_exists(_tokenId),"ERC721Metadata: URI query for nonexistent token");
+        string memory currentBaseURI = _baseURI();
+        return bytes(currentBaseURI).length > 0 ? string(abi.encodePacked(currentBaseURI, _tokenId.toString(), baseExtension)): "";
     }
 
     // onlyOwner functions
