@@ -1,0 +1,16 @@
+{
+    "name": "Plot (-58,60)",
+    "description": "A collection of 62,500 genesis Plots of land. Get a Plot to access the Critterz metaverse in Minecraft. Each Plot of land is 64 by 64 Minecraft blocks in size. Only owners of the Plots can build or destroy any blocks on it. You will have to stake Plots before building on them. Plots can also be minted using $BLOCK tokens.",
+    "image": "https://public.critterz.xyz/plots/renderings/46317",
+    "attributes": [{
+            "trait_type": "x",
+            "value": -58,
+            "display_type": "number"
+        },
+        {
+            "trait_type": "y",
+            "value": 60,
+            "display_type": "number"
+        }
+    ]
+}
