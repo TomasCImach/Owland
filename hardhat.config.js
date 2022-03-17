@@ -3,7 +3,15 @@ require("dotenv").config();
 require("@nomiclabs/hardhat-etherscan");
 
 module.exports = {
-  solidity: "0.8.4",
+  solidity: {
+    version: "0.8.4",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200
+      }
+    }
+  },
   networks: {
     rinkeby: {
       url: process.env.STAGING_ALCHEMY_KEY,
