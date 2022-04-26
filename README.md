@@ -8,7 +8,7 @@ The id of the NFT is such that x=id%50 and y=id/50. id=x+y*50.
 278 plots will be a community area, owned by the project. WHICH WALLET WILL OWN THESE?
 Each of the 2222 plots correspond to a Dark Owl NFT and can be claimed by its owner.
 
-Set Base URI to: ipfs://QmULxBcpD1faHAR8Xxa9ombntY2REvrKmQZ6LCKPcgbwrf/
+Set Base URI to: ipfs://QmefNJkJPsvqyHTBUZF3ACGwXnhmgEoUWJXRLzwYQJQyNN/
 Set darkowls to: 0x2849D61bB776A45B862f23C72Fa544Db9Fb3E2d4
 
 The following states can be modified by the owner of the contract:
