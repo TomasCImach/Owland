@@ -1,5 +1,5 @@
 const main = async () => {
-    const nftContractFactory = await hre.ethers.getContractFactory('Owland');
+    const nftContractFactory = await hre.ethers.getContractFactory('DarkOwlsEstate');
     const nftContract = await nftContractFactory.deploy();
     await nftContract.deployed();
     console.log("Contract deployed to:", nftContract.address);

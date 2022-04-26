@@ -2,24 +2,25 @@
 
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-contract Owland is ERC721, Ownable {
+contract DarkOwlsEstate is ERC721, Ownable {
     using Counters for Counters.Counter;
+    using SafeCast for uint256;
     Counters.Counter public totalSupply;
 
     DarkOwls public darkowls;
 
     string public baseURI;
 
-    uint256 public cost = 0.004 ether;
-    uint256 public costRare = 0.01 ether;
-    //uint256 public maxMint = 2500;
-    uint256 public maxPublicMint = 4;
+    uint256 public cost = 0.04 ether;
+    uint256 public costRare = 0.1 ether;
+    uint256 public maxPublicMint = 4; // TODO
     bool public paused = false;
     bool public publicMinting = false;
     bool public rareByAllowance = false;
@@ -31,9 +32,26 @@ contract Owland is ERC721, Ownable {
     mapping(uint => bool) public hasMinted;
     address public stakingAddress;
 
+    //staking params
+    bool public stakePaused = true;
+    mapping(uint256 => bool) public staked;
+    struct stakeDetails {
+        uint16 depositCycle;
+        uint16 withdrawCycle;
+        uint256 claimedRewards;
+    }
+    mapping(uint256 => stakeDetails) public detailsById;
+    uint256 public startTimestamp;
+    uint32 public immutable cycleLengthInSeconds;
+    uint256 public rewardsPerCycle;
+    address tokenAddress;
+    uint16 public lockedCycles;
+
+    event rewardsClaimed(uint256 amount, uint256 timestamp, address user);
+
     uint256 internal constant GRID_SIZE = 50;
 
-    constructor() ERC721 ("OwLand", "OWLAND") {
+    constructor() ERC721 ("Dark Owls Estate", "EOWL") {
         uint16[36] memory aTypePlots = [0, 14, 24, 25, 34, 49, 459, 469, 479, 489, 700, 749, 959, 989, 1200, 1224, 1225, 1249, 1250, 1274, 1275, 1299, 1459, 1489, 1700, 1749, 1959, 1969, 1979, 1989, 2450, 2464, 2474, 2475, 2484, 2499];
         for (uint256 i = 0; i < aTypePlots.length; i++) {
             typeAPlots[aTypePlots[i]] = true;
@@ -43,51 +61,49 @@ contract Owland is ERC721, Ownable {
             typeBPlots[bTypePlots[i]] = true;
         }
 
-        baseURI = "ipfs://QmULxBcpD1faHAR8Xxa9ombntY2REvrKmQZ6LCKPcgbwrf/"; //for tests only
-        darkowls = DarkOwls(0x2849D61bB776A45B862f23C72Fa544Db9Fb3E2d4); //for tests only
+        baseURI = "ipfs://QmefNJkJPsvqyHTBUZF3ACGwXnhmgEoUWJXRLzwYQJQyNN/";
+        //darkowls = DarkOwls(0x2849D61bB776A45B862f23C72Fa544Db9Fb3E2d4); //for TESTING
+
+        //staking
+        startTimestamp = block.timestamp;
+        cycleLengthInSeconds = 60; // 1 minute TESTING
+        rewardsPerCycle = 1 * 10**18; // 1 ether TESTING
+        lockedCycles = 5;
+        tokenAddress = 0x73D5484Dd68C33B125a8b0269F827fd0A2617d70; // $prey for TESTING
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
         return baseURI;
     }
 
-    // Manages the id and retrieves the coordinates of the Land Plot (x,y)
-    /// @notice total width of the map
-    /// @return width
+// Manages the id and retrieves the coordinates of the Land Plot (x,y)
     function width() external pure returns(uint256) {
         return GRID_SIZE;
     }
-    /// @notice total height of the map
-    /// @return height
     function height() external pure returns(uint256) {
         return GRID_SIZE;
     }
-    /// @notice x coordinate of Land token
-    /// @param id tokenId
-    /// @return the x coordinates
+    /// x coordinate of Land token
     function x(uint256 id) public pure returns(uint256) {
         return id % GRID_SIZE;
     }
-    /// @notice y coordinate of Land token
-    /// @param id tokenId
-    /// @return the y coordinates
+    /// y coordinate of Land token
     function y(uint256 id) public pure returns(uint256) {
         return id / GRID_SIZE;
     }
-    ///
+    /// ID for x and y coordinates
     function getTokenIdByCoordinates(uint256 _x, uint256 _y) public pure returns(uint256) {
         require(_x < GRID_SIZE && _y < GRID_SIZE);
         return _x + _y * GRID_SIZE;
     }
 
-    //Returns true if DOWL had already minted a OWLAND
+//Returns true if DOWL had already minted a DarkOwlsEstate
     function checkOwl(uint256 _owlId) public view returns (bool){
         return hasMinted[_owlId];
     }
 
     function mintByCoordinates(uint256 _x, uint256 _y, uint256 _owlId, bool _stake) external payable {
         require(!paused, "Pause");
-        //require(totalSupply.current() + 1 <= maxMint, "Max NFTs minted."); //See if required
         if (!isFree) {
             require(msg.value >= cost);
         }
@@ -162,10 +178,10 @@ contract Owland is ERC721, Ownable {
                 require(typeBPlots[_tokenId], "Rare");
 
                 if (!_stake) {
-                    _safeMint(msg.sender, _tokenId); // Don't stake, mint to the sender address
+                    _safeMint(msg.sender, _tokenId);
                 } else {
                     require(stakingAddress != address(0), "no staking");
-                    _safeMint(stakingAddress, _tokenId); // Mint to the staking address
+                    _safeMint(stakingAddress, _tokenId, abi.encode(msg.sender)); // Mint to the staking address
                 }
                 totalSupply.increment();
             }
@@ -178,10 +194,10 @@ contract Owland is ERC721, Ownable {
                 require(typeBPlots[_tokenId], "Rare");
 
                 if (!_stake) {
-                    _safeMint(msg.sender, _tokenId); // Don't stake, mint to the sender address
+                    _safeMint(msg.sender, _tokenId);
                 } else {
                     require(stakingAddress != address(0), "no staking");
-                    _safeMint(stakingAddress, _tokenId); // Mint to the staking address
+                    _safeMint(stakingAddress, _tokenId, abi.encode(msg.sender)); // Mint to the staking address
                 }
                 rareAllowance[sender]--;
                 totalSupply.increment();
@@ -192,7 +208,6 @@ contract Owland is ERC721, Ownable {
     function mintByCoordinatesPublic(uint256 _x, uint256 _y, bool _stake) external payable {
         require(!paused, "Pause");
         require(publicMinting, "Public minting disabled");
-        //require(totalSupply.current() + 1 <= maxMint, "Max NFTs minted."); //See if required
         require(msg.value >= cost);
         
         // Check if coordinates are inside grid
@@ -204,8 +219,7 @@ contract Owland is ERC721, Ownable {
     function mintLandsPublic(uint256[] calldata _tokenIds, bool _stake) external payable {
         require(!paused, "Pause");
         require(publicMinting, "Public minting disabled");
-        //require(totalSupply.current() + _tokenIds.length <= maxMint, "Max NFTs minted."); //See if required
-        require(_tokenIds.length > 0, ">0"); // see if required
+        require(_tokenIds.length > 0, ">0");
         require(_tokenIds.length < maxPublicMint + 1, "Exceded the maximum minting amount by one Tx");
         require(msg.value >= cost * _tokenIds.length);
 
@@ -230,17 +244,110 @@ contract Owland is ERC721, Ownable {
             require(!typeAPlots[_tokenId], "Common");
             require(!typeBPlots[_tokenId], "Common");
             if (!_stake) {
-                _safeMint(msg.sender, _tokenId); // Don't stake, mint to the sender address
+                _safeMint(msg.sender, _tokenId);
             } else {
                 require(stakingAddress != address(0), "no staking");
-                _safeMint(stakingAddress, _tokenId); // Mint to the staking address
+                _safeMint(stakingAddress, _tokenId, abi.encode(msg.sender)); // Mint to the staking address
             }
             
             totalSupply.increment();
         }
     }
 
-    function tokensOfOwner(address _address) public view returns(uint256[] memory) {
+    //Staking functions
+    function stakeLand(uint256 tokenID) public {
+        require(!stakePaused, "Stake paused");
+        require(_isApprovedOrOwner(msg.sender, tokenID));
+        require(!staked[tokenID]);
+        require(detailsById[tokenID].withdrawCycle != _getCycle(block.timestamp));
+        staked[tokenID] = true;
+        detailsById[tokenID].depositCycle = _getCycle(block.timestamp);
+    }
+
+    function batchStakeLands(uint256[] memory tokensIds) external {
+        for (uint256 i; i < tokensIds.length; i++) {
+            uint256 tokenID = tokensIds[i];
+            stakeLand(tokenID);
+        }
+    }
+
+    function unstakeLand(uint256 tokenID) external {
+        require(ownerOf(tokenID) == msg.sender, "NOT_TOKEN_OWNER");
+        require(staked[tokenID]);
+        require(detailsById[tokenID].depositCycle + lockedCycles <= _getCycle(block.timestamp), "Lock time!");
+        if (getRewards(tokenID) > 0) {
+            claimSingleReward(tokenID);
+        }
+        staked[tokenID] = false;
+        detailsById[tokenID] = stakeDetails({
+            depositCycle: 0,
+            withdrawCycle: _getCycle(block.timestamp),
+            claimedRewards: 0
+        });
+    }
+
+    function batchUnstakeLands(uint256[] memory tokensIds) external {
+        uint256 amount;
+        for (uint256 i; i < tokensIds.length; i++) {
+            uint256 tokenID = tokensIds[i];
+            amount += getRewards(tokenID);
+        }
+        if (amount > 0) {
+            claimRewards(tokensIds);
+        }
+        for (uint256 i; i < tokensIds.length; i++) {
+            uint256 tokenID = tokensIds[i];
+            require(ownerOf(tokenID) == msg.sender, "NOT_TOKEN_OWNER");
+            require(staked[tokenID]);
+            require(detailsById[tokenID].depositCycle + lockedCycles <= _getCycle(block.timestamp), "Lock time!");
+            staked[tokenID] = false;
+            detailsById[tokenID] = stakeDetails({
+                depositCycle: 0,
+                withdrawCycle: _getCycle(block.timestamp),
+                claimedRewards: 0
+            });
+        }
+    }
+
+    function claimSingleReward(uint256 tokenID) public {
+        require(ownerOf(tokenID) == msg.sender, "NOT_TOKEN_OWNER");
+        require(staked[tokenID]);
+        uint256 amount = getRewards(tokenID);
+        require(amount > 0, "NO_REWARDS_AVAILABLE");
+        detailsById[tokenID].claimedRewards += amount;
+        IERC20(tokenAddress).transfer(msg.sender, amount);
+
+        emit rewardsClaimed(amount, block.timestamp, msg.sender);
+    }
+
+    function claimRewards(uint256[] memory tokensIds) public {
+        uint256 amount;
+        for (uint256 i; i < tokensIds.length; i++) {
+            uint256 tokenID = tokensIds[i];
+            require(ownerOf(tokenID) == msg.sender, "NOT_TOKEN_OWNER");
+            require(staked[tokenID]);
+            amount += getRewards(tokenID);
+            detailsById[tokenID].claimedRewards += getRewards(tokenID);
+        }
+        require(amount > 0, "NO_REWARDS_AVAILABLE");
+        IERC20(tokenAddress).transfer(msg.sender, amount);
+
+        emit rewardsClaimed(amount, block.timestamp, msg.sender);
+    }
+
+    function getRewards(uint256 tokenID) public view returns (uint256 amount) {
+        require(detailsById[tokenID].depositCycle > 0);
+        uint16 cyclesSinceDeposit = _getCycle(block.timestamp) - detailsById[tokenID].depositCycle;
+        amount = (rewardsPerCycle * cyclesSinceDeposit) - detailsById[tokenID].claimedRewards;
+    }
+
+    function _getCycle(uint256 timestamp) internal view returns (uint16) {
+        require(timestamp >= startTimestamp, "NftStaking: timestamp preceeds contract start");
+        return (((timestamp - startTimestamp) / uint256(cycleLengthInSeconds)) + 1).toUint16();
+    }
+
+    // returns array of all NFTs owned by _address
+    function tokensOfOwner(address _address) external view returns(uint256[] memory) {
         require(balanceOf(_address) > 0, "no tks");
         uint256[] memory _tokensOfOwner = new uint256[](balanceOf(_address));
         uint256 j = 0;
@@ -257,10 +364,23 @@ contract Owland is ERC721, Ownable {
         return _tokensOfOwner;
     }
 
-    // onlyOwner functions
-    //function setMaxMint(uint256 _maxMint) external onlyOwner {
-    //    maxMint = _maxMint;
-    //}
+    // returns array of all minted plots
+    function mintedLands() external view returns (uint256[] memory) {
+        uint256[] memory _mintedIds = new uint256[](totalSupply.current());
+        uint256 j = 0;
+        uint256 i = 0;
+        while (i < totalSupply.current()) {
+            if (_exists(j)) {
+                _mintedIds[i] = j;
+                i++;
+            }
+            j++;
+        }
+        return _mintedIds;
+    }
+
+    /* ---- onlyOwner functions ---- */
+
     function setCost(uint256 _cost) external onlyOwner {
         cost = _cost;
     }
@@ -269,6 +389,9 @@ contract Owland is ERC721, Ownable {
     }
     function setPause(bool _state) public onlyOwner {
         paused = _state;
+    }
+    function setStakePaused(bool _state) public onlyOwner {
+        stakePaused = _state;
     }
     function setIsFree(bool _state) public onlyOwner {
         isFree = _state;
@@ -303,6 +426,19 @@ contract Owland is ERC721, Ownable {
     function withdraw() public payable onlyOwner {
         require(payable(msg.sender).send(address(this).balance));
     }
+    function setRewardsPerCycle(uint256 _rewardsPerCycle) external onlyOwner {
+        rewardsPerCycle = _rewardsPerCycle;
+    }
+    function setTokenAddress(address _tokenAddress) external onlyOwner {
+        tokenAddress = _tokenAddress;
+    }
+    function setLockedCycles(uint16 _lockedCycles) external onlyOwner {
+        lockedCycles = _lockedCycles;
+    }
+    function retrieveTokens(address _to, uint256 _amount, address _tokenAddress) external onlyOwner {
+        require(IERC20(_tokenAddress).transfer(_to, _amount));
+    }
+
 
     // Allows staking contract to make transfer on behalf of owner
     function transferFrom(address from, address to, uint256 tokenId) public virtual override {
@@ -310,11 +446,12 @@ contract Owland is ERC721, Ownable {
         require(_isApprovedOrOwner(sender, tokenId) || sender == stakingAddress, "ERC721: transfer caller is not owner nor approved");
         _transfer(from, to, tokenId);
     }
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal override {
+        require(!staked[tokenId], "staked Land");
+        super._beforeTokenTransfer(from, to, tokenId);
+    }
 }
 
 interface DarkOwls {
-    
-    function walletOfOwner(address _owner) external view returns (uint256[] memory);
-    function ownerOf(uint256 tokenId) external view returns (address);
-    
+        function ownerOf(uint256 tokenId) external view returns (address);
 }
