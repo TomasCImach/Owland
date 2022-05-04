@@ -15,13 +15,13 @@ module.exports = {
   networks: {
     rinkeby: {
       url: process.env.STAGING_ALCHEMY_KEY,
-      accounts: [process.env.PRIVATE_KEY2],
+      accounts: [process.env.PRIVATE_KEY1],
     },
-    /*mainnet: {
+    mainnet: {
       chainId: 1,
       url: process.env.PROD_ALCHEMY_KEY,
-      accounts: [process.env.PRIVATE_KEY],
-    },*/
+      accounts: [process.env.PRIVATE_KEY1],
+    },
   },
   etherscan: {
     // Your API key for Etherscan

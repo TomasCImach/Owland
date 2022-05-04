@@ -27,8 +27,8 @@ mintLands
     ([103,104,105],[2,3]) - testing not equal minting and owls - Fail with error 'Put as many Lands as Owl Ids'
     ([103,104],[0,3]) - testing land minted for this role - Fail with error 'Land already minted for this owl'
     ([103,104],[1,3]) - testing not owl owner - Fail with error 'Claimant is not the owner'
-    ([103,104],[2,3]) - success (gas 176k - 88/u)
-    ([105],[1]) - success (gas 102k) -- 30% less gas than mintByCoordinates
+    ([103,104],[2,3]) - success (gas 176k - 88/u) - 74xU + 28k
+    ([105],[1]) - success (gas 102k) -- 30% less gas than mintByCoordinates - 
     *** test outbound coordinates *** success V2
 
 tokensOfOwner

@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "hardhat/console.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
@@ -18,9 +17,9 @@ contract DarkOwlsEstate is ERC721, Ownable {
 
     string public baseURI;
 
-    uint256 public cost = 0.04 ether;
-    uint256 public costRare = 0.1 ether;
-    uint256 public maxPublicMint = 4; // TODO
+    uint256 public cost = 0.02 ether;
+    uint256 public costRare = 0.08 ether;
+    uint256 public maxPublicMint = 4;
     bool public paused = false;
     bool public publicMinting = false;
     bool public rareByAllowance = false;
@@ -61,15 +60,14 @@ contract DarkOwlsEstate is ERC721, Ownable {
             typeBPlots[bTypePlots[i]] = true;
         }
 
-        baseURI = "ipfs://QmefNJkJPsvqyHTBUZF3ACGwXnhmgEoUWJXRLzwYQJQyNN/";
-        //darkowls = DarkOwls(0x2849D61bB776A45B862f23C72Fa544Db9Fb3E2d4); //for TESTING
+        baseURI = "ipfs://Qme867emMNf2U96oZALPqG51YU6pKzaGBnGV9iQQod7WVW/";
 
         //staking
         startTimestamp = block.timestamp;
-        cycleLengthInSeconds = 60; // 1 minute TESTING
-        rewardsPerCycle = 1 * 10**18; // 1 ether TESTING
-        lockedCycles = 5;
-        tokenAddress = 0x73D5484Dd68C33B125a8b0269F827fd0A2617d70; // $prey for TESTING
+        cycleLengthInSeconds = 86400; // 1 day
+        rewardsPerCycle = 0.1 * 10**18; // 0.1 tokens per day 
+        lockedCycles = 30; // 30 days
+        tokenAddress = 0xD5d86FC8d5C0Ea1aC1Ac5Dfab6E529c9967a45E9;
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
